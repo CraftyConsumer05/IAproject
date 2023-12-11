@@ -3,6 +3,11 @@ import csv
 import pyautogui
 import mediapipe as mp
 import keyboard
+import pandas as pd
+from sklearn.svm import SVC
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
+
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 mp_hands = mp.solutions.hands
@@ -75,7 +80,7 @@ with mp_hands.Hands(
     min_tracking_confidence=0.5) as hands, open('alonsagay.csv', 'w', newline='') as csv_file:
   
   csv_writer = csv.writer(csv_file)
-  csv_header = ['landmark','x', 'y', 'z']
+  csv_header = ['WRIST_X','WRIST_Y','WRIST_Z','THUMB_CMC_X','THUMB_CMC_Y','THUMB_CMC_Z', 'THUMB_MCP_X','THUMB_MCP_Y','THUMB_MCP_Z', 'THUMB_IP_X','THUMB_IP_Y','THUMB_IP_Z', 'THUMB_TIP_Z','THUMB_TIP_Y','THUMB_TIP_Z', 'INDEX_FINGER_MCP_X','INDEX_FINGER_MCP_Y','INDEX_FINGER_MCP_Z', 'INDEX_FINGER_PIP_X','INDEX_FINGER_PIP_Y','INDEX_FINGER_PIP_Z', 'INDEX_FINGER_DIP_X','INDEX_FINGER_DIP_Y','INDEX_FINGER_DIP_Z','INDEX_FINGER_TIP_X','INDEX_FINGER_TIP_Y','INDEX_FINGER_TIP_Z','MIDDLE_FINGER_MCP_X','MIDDLE_FINGER_MCP_Y','MIDDLE_FINGER_MCP_Z','MIDDLE_FINGER_PIP_X','MIDDLE_FINGER_PIP_Y','MIDDLE_FINGER_PIP_Z','MIDDLE_FINGER_DIP_X','MIDDLE_FINGER_DIP_Y','MIDDLE_FINGER_DIP_Z','MIDDLE_FINGER_TIP_X','MIDDLE_FINGER_TIP_Y','MIDDLE_FINGER_TIP_Z','RING_FINGER_MCP_X','RING_FINGER_MCP_Y','RING_FINGER_MCP_Z','RING_FINGER_PIP_X','RING_FINGER_PIP_Y','RING_FINGER_PIP_Z','RING_FINGER_DIP_X','RING_FINGER_DIP_Y','RING_FINGER_DIP_Z','RING_FINGER_TIP_X','RING_FINGER_TIP_Y','RING_FINGER_TIP_Z','PINKY_MCP_X','PINKY_MCP_Y','PINKY_MCP_Z','PINKY_PIP_X','PINKY_PIP_Y','PINKY_PIP_Z','PINKY_DIP_X','PINKY_DIP_Y','PINKY_DIP_Z','PINKY_TIP_X','PINKY_TIP_Y','PINKY_TIP_Z']
   csv_writer.writerow(csv_header)
   while cap.isOpened():
     success, image = cap.read()
@@ -108,13 +113,32 @@ with mp_hands.Hands(
         max_y = 0
         min_y = 1
 
+        # ===============
+        # Extract features from hand landmarks
+        feature_vector = []
+        for landmark in hand_landmarks.landmark:
+            feature_vector.extend([landmark.x, landmark.y, landmark.z])
+
+        # Make a prediction using the trained models
+        predicted_label = model.predict([feature_vector])
+
+        # Print or use the predicted label as needed
+        print('Predicted Gesture:', predicted_label[0])
+        # ===========
+
         if max_x < 0.50 and min_x > 0.10 and max_y < 0.75 and min_y > 0.25:
             if keyboard.is_pressed('q'):  # if key 'q' is pressed 
-              print('You Pressed q Key!')
+              print('Coordinates Captured')
+              lm_compile=[]
               for index, lm in enumerate(mp_hands.HandLandmark):
                 lm_point = hand_landmarks.landmark[index]
-                lm_row = [lm.name,lm_point.x,lm_point.y,lm_point.z]
-                csv_writer.writerow(lm_row)
+                lm_row = [lm_point.x,lm_point.y,lm_point.z]
+                lm_compile.extend(lm_row)
+                # lm_compile =
+                # print(lm_point)
+                # csv_writer.writerow(lm_row)
+                # csv_writer.writerow(lm_compile)
+              csv_writer.writerow(lm_compile)
               myScreenshot = pyautogui.screenshot()
               myScreenshot.save(r'C:\Users\Ef\Desktop\IAFinal\project\screenshot_.png')
 
@@ -147,10 +171,22 @@ with mp_hands.Hands(
         
     # Flip the image horizontally for a selfie-view display.
     cv2.imshow('MediaPipe Hands', image)
-    
-    
 
+    # =========f
     
+    dataset = pd.read_csv('training_data.csv')
+
+    # Define features and labels
+    features = dataset.drop('Labels', axis=1)
+    labels = dataset['Labels']
+
+    # Create a pipeline with a scaler and SVM classifier
+    model = make_pipeline(StandardScaler(), SVC())
+
+    # Train the model
+    model.fit(features.values, labels.values)
+
+    # ======================
     
     if cv2.waitKey(5) & 0xFF == 27:
       break
